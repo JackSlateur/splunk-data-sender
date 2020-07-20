@@ -14,6 +14,7 @@ logging.basicConfig(format="%(name)s - %(asctime)s - %(levelname)s: - %(message)
 
 
 class SplunkSender:
+
     """
     A logging handler to send events to a Splunk Enterprise instance
     running the Splunk HTTP Event Collector.
@@ -131,9 +132,6 @@ class SplunkSender:
             tmp_list.append(acks)
             acks = tmp_list.copy()
 
-        url, headers = self.dispatch_url_headers(True)
-        log.debug(f"Destination URL is {url}")
-
         payload = json.dumps({"acks": acks})
         splunk_acks_response = self._send_to_splunk(payload, True)
         return json.loads(splunk_acks_response.text)
@@ -248,9 +246,10 @@ class SplunkSender:
             503: {9: 'Server is busy'},
         }[HTTP_code].get(splunk_code, 'Not a valid Splunk Error')
 
-    def dispatch_splunk_health_res_code(self):
-        splunk_res_codes = {
+    @staticmethod
+    def dispatch_splunk_health_res_code(HTTP_code):
+        return {
             200: 'HEC is available and accepting input',
             400: 'Invalid HEC token',
             503: 'HEC is unhealthy, queues are full',
-        }
+        }.get(HTTP_code)
