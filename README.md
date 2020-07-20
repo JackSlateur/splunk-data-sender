@@ -2,7 +2,7 @@
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/878ba78c2afd4dd9a37877c0136e49f6)](https://app.codacy.com/manual/andrea.salvatori92/splunk-data-sender?utm_source=github.com&utm_medium=referral&utm_content=Sonic0/splunk-data-sender&utm_campaign=Badge_Grade_Dashboard)
 
-**Splunk Data Sender is a very simple and minimal Python package for sending logged events to an installation of Splunk Enterprise throw REST API.**
+##### Splunk Data Sender is a very simple and minimal Python package for sending logged events to an installation of Splunk Enterprise throw REST API.
 
 *This logger requires the destination Splunk Enterprise server to have enabled and configured the [Splunk HTTP Event Collector](http://dev.splunk.com/view/event-collector/SP-CAAAE6M).*
 
@@ -21,10 +21,10 @@ and **check_acks()** to, respectively, send logs and check messages acks(Require
 
 Example:
 
-~~~python
+```python
     import logging
     from splunk_data_sender import SplunkSender
-
+    
     splunk_conf = SplunkSender(
         host='splunk.example.com',
         port='8088',
@@ -47,11 +47,11 @@ Example:
     payload = "Hello Splunk!"
     splunk_res = splunk.send_data(payload)
     logging.info(splunk_res)
-
+    
     ack_id = splunk_res.get('ackId')
     splunk_ack_res = splunk.send_acks(ack_id)
     logging.info(splunk_ack_res)
-~~~
+```
 
 ## Retry Logic
 

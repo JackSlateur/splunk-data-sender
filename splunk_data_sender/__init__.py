@@ -14,8 +14,8 @@ logging.basicConfig(format="%(name)s - %(asctime)s - %(levelname)s: - %(message)
 
 
 class SplunkSender:
-
     """
+
     A logging handler to send events to a Splunk Enterprise instance
     running the Splunk HTTP Event Collector.
     """
