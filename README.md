@@ -21,7 +21,7 @@ Example:
 
 ~~~python
     import logging
-    from splunk_handler import SplunkSender
+    from splunk_data_sender import SplunkSender
 
     splunk_conf = SplunkSender(
         host='splunk.example.com',
