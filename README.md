@@ -16,8 +16,8 @@ Manual:
 
     from splunk_data_sender import SplunkSender
 
-Then create a SplunkSender instance with your preferred configuration. Now you can use the two methods __send_data()__
-and __check_acks()__ to, respectively, send logs and check messages acks(Requires useAck enabled in HEC).
+Then create a SplunkSender instance with your preferred configuration. Now you can use the two methods **send_data()**
+and **check_acks()** to, respectively, send logs and check messages acks(Requires useAck enabled in HEC).
 
 Example:
 
@@ -53,9 +53,6 @@ Example:
     logging.info(splunk_ack_res)
 ~~~
 
-I would recommend using a JSON formatter with this to receive your logs in JSON format.
-Here is an open source one: https://github.com/madzak/python-json-logger
-
 ## Retry Logic
 
 This library uses the built-in retry logic from urllib3 (a retry
@@ -66,11 +63,11 @@ settings in the [urllib3 documentation](https://github.com/kennethreitz/requests
 ## Contributing
 
 Feel free to contribute an issue or pull request:
-
-1. Check for existing issues and PRs
-2. Fork the repo, and clone it locally
-3. Create a new branch for your contribution
-4. Push to your fork and submit a pull request
+    
+1.  Check for existing issues and PRs
+2.  Fork the repo, and clone it locally
+3.  Create a new branch for your contribution
+4.  Push to your fork and submit a pull request
 
 ## License
 
