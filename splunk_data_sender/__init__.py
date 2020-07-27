@@ -1,3 +1,25 @@
+# MIT License
+#
+# Copyright (c) 2020 Andrea Salvatori
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import json
 import logging
 import socket
@@ -20,22 +42,22 @@ class SplunkSender:
     running the Splunk HTTP Event Collector.
     """
 
-    def __init__(self, host, port, token, index, source="Splunk data sender", hostname=None,
-                 allow_overrides=False, sourcetype='generic_single_line', protocol='https', api_url='collector/event',
+    def __init__(self, host, port, token, index, protocol='https', source="Splunk data sender", hostname=None,
+                 sourcetype='generic_single_line', allow_overrides=False, api_url='collector/event',
                  api_version=None, channel=None, channel_in='url', proxies=None, verify=True, timeout=30,
                  retry_count=5, retry_backoff=2.0, enable_debug=False):
         """
         Args:
-            protocol (str): The web protocol to use
+            protocol (str): The web protocol to use. Default 'https'
             host (str): The Splunk host param
             port (int): The port the host is listening on
             token (str): Authentication token
             index (str): Splunk index to write to
             source (str): The Splunk source param
             hostname (str): The Splunk Enterprise hostname
-            allow_overrides (bool): Whether to look for _<param> in log data (ex: _index)
             sourcetype (str): The Splunk sourcetype param. Defaults Non-Log files types
                               https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/Listofpretrainedsourcetypes
+            allow_overrides (bool): Whether to look for one of the plunk built-in parameters(source, host, ecc)
             api_url (str): The HTTP Event Collector REST API endpoint.
                            https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/HECRESTendpoints
             api_version (str): Protocol version for future scalability. No default version. Refer to the above API docs
@@ -57,7 +79,7 @@ class SplunkSender:
         self.source = source
         self.hostname = hostname or socket.gethostname()
         self.allow_overrides = allow_overrides
-        self.sourcetype = sourcetype if sourcetype in ["generic_single_line", "_json"] else "generic_single_line"
+        self.sourcetype = sourcetype
         self.api_url = api_url
         self.api_version = api_version or ''
         self.channel = channel
@@ -93,6 +115,10 @@ class SplunkSender:
         if self.sourcetype == "_json" and self.api_url in ["collector/raw", f"collector/raw/{self.api_version}"]:
             log.error("cannot send json record as raw data")
             raise ValueError("Json input must be sent either to the /collector or /collector/event endpoints")
+        # https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/IFXandHEC
+        elif self.sourcetype == "_json" and self.api_url != "collector/event":
+            log.warning("Requests containing the fields property must send to /collector/event endpoint. "
+                        "Otherwise, they will not be indexed.")
 
         # Set up automatic retry with back-off
         log.debug("Preparing to create a Requests session")
