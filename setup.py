@@ -13,7 +13,7 @@ setup(
     packages=find_packages(),
     install_requires=['requests >= 2.24.0, < 3.0.0'],
     classifiers=[
-        'Development Status :: 1 - Planning',
+        'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
