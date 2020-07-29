@@ -37,53 +37,52 @@ logging.basicConfig(format="%(name)s - %(asctime)s - %(levelname)s: - %(message)
 
 class SplunkSender:
     """
-
     A logging handler to send events to a Splunk Enterprise instance
     running the Splunk HTTP Event Collector.
     """
 
-    def __init__(self, host, port, token, index, protocol='https', source="Splunk data sender", hostname=None,
+    def __init__(self, host, token, protocol='https', port='8088', source="Splunk data sender", hostname=None,
                  sourcetype='generic_single_line', allow_overrides=False, api_url='collector/event',
-                 api_version=None, channel=None, channel_in='url', proxies=None, verify=True, timeout=30,
+                 api_version=None, index='main', channel=None, channel_in='url', proxies=None, verify=True, timeout=30,
                  retry_count=5, retry_backoff=2.0, enable_debug=False):
         """
         Args:
-            protocol (str): The web protocol to use. Default 'https'
             host (str): The Splunk host param
-            port (int): The port the host is listening on
             token (str): Authentication token
-            index (str): Splunk index to write to
+            protocol (str): The web protocol to use. Default 'https'
+            port (int): The port the host is listening on
             source (str): The Splunk source param
             hostname (str): The Splunk Enterprise hostname
-            sourcetype (str): The Splunk sourcetype param. Defaults Non-Log files types
+            sourcetype (str): The Splunk sourcetype param. Defaults Non-Log file types
                               https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/Listofpretrainedsourcetypes
             allow_overrides (bool): Whether to look for one of the plunk built-in parameters(source, host, ecc)
             api_url (str): The HTTP Event Collector REST API endpoint.
                            https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/HECRESTendpoints
-            api_version (str): Protocol version for future scalability. No default version. Refer to the above API docs
+            api_version (str): Protocol version for future scalability. No default version. Refer to the API docs
+            index (str): Splunk index to write to
             channel (str): GUID. Required if useAck config is enabled in Splunk HEC instance.
             channel_in (str): Where pass channel. "header"("x-splunk-request-channel") or "url".
             proxies (list): The proxies to use for the request
-            verify (bool): Whether to perform ssl certificate validation
+            verify (bool): Whether to perform SSL certificate validation
             timeout (float): The time to wait for a response from Splunk
             retry_count (int): The number of times to retry a failed request
             retry_backoff (float): The requests lib backoff factor
             enable_debug (bool): Whether to print debug console messages
         """
 
-        self.protocol = protocol
         self.host = host
-        self.port = port
         self.token = token
-        self.index = index
+        self.protocol = protocol if protocol in ("http", "https") else "https"
+        self.port = port
         self.source = source
         self.hostname = hostname or socket.gethostname()
         self.allow_overrides = allow_overrides
         self.sourcetype = sourcetype
         self.api_url = api_url
         self.api_version = api_version or ''
+        self.index = index
         self.channel = channel
-        self.channel_in = channel_in if channel_in in ["url", "header"] else "url"
+        self.channel_in = channel_in if channel_in in ("url", "header") else "url"
         self.proxies = proxies
         self.verify = verify  # requests SSL verify. Making unverified HTTPS requests is strongly discouraged
         self.timeout = timeout
@@ -112,7 +111,7 @@ class SplunkSender:
             raise ValueError("/collector api does not support versioning")
 
         # https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/FormateventsforHTTPEventCollector
-        if self.sourcetype == "_json" and self.api_url in ["collector/raw", f"collector/raw/{self.api_version}"]:
+        if self.sourcetype == "_json" and self.api_url in ("collector/raw", f"collector/raw/{self.api_version}"):
             log.error("cannot send json record as raw data")
             raise ValueError("Json input must be sent either to the /collector or /collector/event endpoints")
         # https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/IFXandHEC
@@ -226,6 +225,7 @@ class SplunkSender:
     def _check_splunk_response(self, splunk_response):
         splunk_res_code = json.loads(splunk_response.text).get('code')
         splunk_api_res_msg = self._dispatch_splunk_res_code(splunk_response.status_code, splunk_res_code)
+        # TODO response from acks check does not have the "code"
         msg = f"Splunk response: -code: {splunk_res_code}, -HTTPcode: {splunk_response.status_code}, " \
               f"-message: {splunk_api_res_msg}"
         if msg and splunk_res_code == 0:
