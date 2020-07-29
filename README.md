@@ -7,6 +7,10 @@
 *This logger requires the destination Splunk Enterprise server to have enabled and configured the [Splunk HTTP Event Collector](http://dev.splunk.com/view/event-collector/SP-CAAAE6M).*
 
 ## Installation
+Pip:
+
+    pip install splunk-data-sender
+
 
 Manual:
 
