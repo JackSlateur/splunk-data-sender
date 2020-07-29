@@ -2,9 +2,9 @@ from setuptools import setup, find_packages
 
 setup(
     name='splunk_data_sender',
-    version='0.0.3',
+    version='0.0.4',
     license='MIT License',
-    description='A Python logging handler that sends your logs to Splunk',
+    description='A Python connector that sends your data to Splunk',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     author='Andrea Salvatori',
