@@ -2,7 +2,7 @@
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/878ba78c2afd4dd9a37877c0136e49f6)](https://app.codacy.com/manual/andrea.salvatori92/splunk-data-sender?utm_source=github.com&utm_medium=referral&utm_content=Sonic0/splunk-data-sender&utm_campaign=Badge_Grade_Dashboard)
 
-##### Splunk Data Sender is a very simple and minimal Python package for sending logged events to an installation of Splunk Enterprise throw REST API.
+**Splunk Data Sender is a very simple and minimal Python package for sending logged events to an installation of Splunk Enterprise throw REST API**
 
 *This logger requires the destination Splunk Enterprise server to have enabled and configured the [Splunk HTTP Event Collector](http://dev.splunk.com/view/event-collector/SP-CAAAE6M).*
 
@@ -10,7 +10,7 @@
 
 Manual:
 
-    python setup.py install
+    python3 setup.py install
 
 ## Usage
 
@@ -73,15 +73,17 @@ Refer to the [official Splunk documentation](https://docs.splunk.com/Documentati
 for more information about source types. 
 
 ### "allow_overrides"
-If this param is sets to "True", whether to look for one of the Splunk built-in parameters 
-(time, source, host, index) it will override the auto completed parameters.<br>
+If this param is set to "True", whether to look for one of the Splunk built-in parameters 
+(time, source, host, index) it will override the autocompleted parameters.<br>
 For example, a json record with "time"=1486683865.000 will simulates a payload in the past for Splunk.
 
 ## Notes for JSON source type event 
 Refer to the [official Splunk documentation](https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/IFXandHEC) 
 for more information about the use of JSON source type.
+
 ### Nested JSON inside the "event" property
 In some cases, events have nested json which contains the custom fields to be indexed. In this case you have to set "sourcetype" = "_json".
+
 ### "fields"
 Fields for indexing that do not occur in the event payload itself.<br>
 You can use this parameter when you do not want particular fields to be included in the event data, 
