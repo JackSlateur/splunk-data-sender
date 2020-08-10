@@ -194,8 +194,8 @@ class SplunkSender:
             val = obj.get(attr, default)
             try:
                 del obj[attr]
-            except Exception as err:
-                log.error(f"Error: {err}, deleting {attr} from {obj}")
+            except KeyError:
+                log.warning(f"Using default value for {attr}")
         return val
 
     def _send_to_splunk(self, payload=None, is_acks_call=False):
@@ -224,14 +224,21 @@ class SplunkSender:
 
     def _check_splunk_response(self, splunk_response):
         splunk_res_code = json.loads(splunk_response.text).get('code')
-        splunk_api_res_msg = self._dispatch_splunk_res_code(splunk_response.status_code, splunk_res_code)
-        # TODO response from acks check does not have the "code"
-        msg = f"Splunk response: -code: {splunk_res_code}, -HTTPcode: {splunk_response.status_code}, " \
-              f"-message: {splunk_api_res_msg}"
-        if msg and splunk_res_code == 0:
-            log.info(msg)
+        # code is only present in case of send data, not in ack check.
+        # If the code present, the http request has done correctly.
+        if splunk_res_code or splunk_res_code == 0:  # 0 is False, so double check
+            splunk_api_res_msg = self._dispatch_splunk_res_code(splunk_response.status_code, splunk_res_code)
+            # TODO response from acks check does not have the "code"
+            msg = f"Splunk response: -code: {splunk_res_code}, -HTTPcode: {splunk_response.status_code}, " \
+                  f"-message: {splunk_api_res_msg}"
+            if 200 <= splunk_response.status_code <= 299 and splunk_res_code == 0:
+                log.info(msg)
+            else:
+                log.error(msg)
+        elif 200 <= splunk_response.status_code <= 299 and 'acks' in splunk_response.text:  # ack response
+            log.info("Splunk ack response arrived")
         else:
-            log.error(msg)
+            log.warning("Response does not come directly from Splunk")
 
         splunk_response.raise_for_status()  # Throws exception for 4xx/5xx status
 
