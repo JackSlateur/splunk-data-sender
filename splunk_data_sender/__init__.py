@@ -42,7 +42,7 @@ class SplunkSender:
     """
 
     def __init__(self, host, token, protocol='https', port='8088', source="Splunk data sender", hostname=None,
-                 sourcetype='generic_single_line', allow_overrides=False, api_url='collector/event',
+                 source_type='generic_single_line', allow_overrides=False, api_url='collector/event',
                  api_version=None, index='main', channel=None, channel_in='url', proxies=None, verify=True, timeout=30,
                  retry_count=5, retry_backoff=2.0, enable_debug=False):
         """
@@ -53,7 +53,7 @@ class SplunkSender:
             port (int): The port the host is listening on
             source (str): The Splunk source param
             hostname (str): The Splunk Enterprise hostname
-            sourcetype (str): The Splunk sourcetype param. Defaults Non-Log file types
+            source_type (str): The Splunk source_type param. Defaults Non-Log file types
                               https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/Listofpretrainedsourcetypes
             allow_overrides (bool): Whether to look for one of the plunk built-in parameters(source, host, ecc)
             api_url (str): The HTTP Event Collector REST API endpoint.
@@ -77,7 +77,7 @@ class SplunkSender:
         self.source = source
         self.hostname = hostname or socket.gethostname()
         self.allow_overrides = allow_overrides
-        self.sourcetype = sourcetype
+        self.source_type = source_type
         self.api_url = api_url
         self.api_version = api_version or ''
         self.index = index
@@ -111,11 +111,11 @@ class SplunkSender:
             raise ValueError("/collector api does not support versioning")
 
         # https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/FormateventsforHTTPEventCollector
-        if self.sourcetype == "_json" and self.api_url in ("collector/raw", f"collector/raw/{self.api_version}"):
+        if self.source_type == "_json" and self.api_url in ("collector/raw", f"collector/raw/{self.api_version}"):
             log.error("cannot send json record as raw data")
             raise ValueError("Json input must be sent either to the /collector or /collector/event endpoints")
         # https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/IFXandHEC
-        elif self.sourcetype == "_json" and self.api_url != "collector/event":
+        elif self.source_type == "_json" and self.api_url != "collector/event":
             log.warning("Requests containing the fields property must send to /collector/event endpoint. "
                         "Otherwise, they will not be indexed.")
 
@@ -129,7 +129,38 @@ class SplunkSender:
 
         log.debug("Class initialize complete")
 
+    def get_health(self):
+        """
+        This endpoint checks if HEC is healthy and able to accept new data from a load balancer.
+        HEC health is determined if there is space available in the queue.
+        https://docs.splunk.com/Documentation/Splunk/8.0.5/RESTREF/RESTinput#services.2Fcollector.2Fhealth
+
+        Returns:
+            bool: The return message from API call.
+        """
+        log.debug("send_health() called")
+        # True response body like {"text": "HEC is healthy", "code": 17}
+        splunk_response = self._get_from_splunk('get-health')
+        # Splunk api doc does not specify the response payload and the means of response code inside it
+        is_healthy, message = self._dispatch_splunk_health_res(splunk_response.status_code)
+        if not is_healthy:
+            log.error(message)
+        else:
+            log.info(message)
+
+        return is_healthy
+
     def send_data(self, records):
+        """
+        Send events to HTTP Event Collector using the Splunk platform JSON event protocol.
+        https://docs.splunk.com/Documentation/Splunk/8.0.5/RESTREF/RESTinput#services.2Fcollector.2Fevent
+
+        Args:
+            records (list): The logs data from the user.
+
+        Returns:
+            dict: The return message from API call. response body like {"text":"Success","code":0,"ackId":0}
+        """
         log.debug("send_data() called")
 
         if not isinstance(records, list):
@@ -140,17 +171,29 @@ class SplunkSender:
         payload = ""
         for record in records:
             try:
-                formatted_record = self.format_record(record)
+                formatted_record = self._format_record(record)
                 payload = ''.join([payload, formatted_record])
             except Exception as err:
                 log.error(f"Exception: {str(err)}")
                 raise Exception from err
 
-        splunk_response = self._send_to_splunk(payload=payload)
+        splunk_response = self._send_to_splunk('send-event', payload)
 
         return json.loads(splunk_response.text)
 
     def send_acks(self, acks):
+        """
+        Query event indexing status. For events sent using HTTP Event Collector, check event indexing status.
+        Requests must use a valid channel ID and authorization token with useACK enabled.
+        An event ACK ID, returned in response to a POST to services/collector, is also required.
+        https://docs.splunk.com/Documentation/Splunk/8.0.5/RESTREF/RESTinput#services.2Fcollector.2Fack
+
+        Args:
+            acks (list/str): The acks to test the correct data processing
+
+        Returns:
+            dict: The return message from API call. response body like {"acks":{"0":true,"1":true, ...}}
+        """
         log.debug("send_acks() called")
         if not isinstance(acks, list):
             tmp_list = list()
@@ -158,26 +201,26 @@ class SplunkSender:
             acks = tmp_list.copy()
 
         payload = json.dumps({"acks": acks})
-        splunk_acks_response = self._send_to_splunk(payload, True)
+        splunk_acks_response = self._send_to_splunk('send-ack', payload)
         return json.loads(splunk_acks_response.text)
 
     ##################
     # helper methods #
     ##################
 
-    def format_record(self, record):
-        log.debug("format_record() called")
+    def _format_record(self, record):
+        log.debug("_format_record() called")
 
         params = {
             'time': self._get_splunk_attr(record, 'time', time.time()),
             'host': self._get_splunk_attr(record, 'host', self.hostname),
             'source': self._get_splunk_attr(record, 'source', self.source),
-            'sourcetype': self._get_splunk_attr(record, 'sourcetype', self.sourcetype),
+            'sourcetype': self._get_splunk_attr(record, 'sourcetype', self.source_type),
             'index': self._get_splunk_attr(record, 'index', self.index),
             'event': self._get_splunk_attr(record, 'event', record)
         }
 
-        if self.sourcetype == "_json" and isinstance(record, dict):
+        if self.source_type == "_json" and isinstance(record, dict):
             params.update({'fields': record})
 
         log.debug("Record dictionary created")
@@ -198,13 +241,12 @@ class SplunkSender:
                 log.warning(f"Using default value for {attr}")
         return val
 
-    def _send_to_splunk(self, payload=None, is_acks_call=False):
+    def _send_to_splunk(self, action, payload=None):
         log.debug("_send_to_splunk() called")
         if not payload:
-            raise ValueError("Please give me a payload to send")
-        log.debug("Payload available for sending")
+            log.warning("No payload provided")
 
-        url, headers = self.dispatch_url_headers(is_acks_call)
+        url, headers = self._dispatch_url_headers(action)
 
         log.debug(f"Destination URL is {url}")
         try:
@@ -212,6 +254,25 @@ class SplunkSender:
             splunk_response = self.session.post(
                 url,
                 data=payload,
+                headers=headers,
+                verify=self.verify,
+                timeout=self.timeout
+            )
+            self._check_splunk_response(splunk_response)
+        except (Timeout, ConnectionError, TooManyRedirects) as err:
+            raise err
+        else:
+            return splunk_response
+
+    def _get_from_splunk(self, action):
+        log.debug("_get_from_splunk() called")
+
+        url, headers = self._dispatch_url_headers(action)
+
+        log.debug(f"Destination URL is {url}")
+        try:
+            splunk_response = self.session.get(
+                url,
                 headers=headers,
                 verify=self.verify,
                 timeout=self.timeout
@@ -242,24 +303,37 @@ class SplunkSender:
 
         splunk_response.raise_for_status()  # Throws exception for 4xx/5xx status
 
-    def dispatch_url_headers(self, acks_url=False):
-        url = f"{self.protocol}://{self.host}:{self.port}/services"
-        if acks_url:
-            url = f"{url}/collector/ack"
-        else:
-            url = f"{url}/{self.api_url}"
-            # Add api version
-            if self.api_version:
-                url = f"{url}/{self.api_version}"
+    def _dispatch_url_headers(self, action):
+        """ Dispatch the correct header and url for the requested action
+        Doc at --> https://docs.splunk.com/Documentation/Splunk/8.0.5/RESTREF/RESTinput#services.2Fcollector.2Fhealth
+
+        Params:
+            - action: (string) Three possibilities -> "send-health", "send-event" or "send-ack"
+        """
+        base_url = f"{self.protocol}://{self.host}:{self.port}/services"
+
+        suffix_url = {
+            'get-health': "/collector/health",
+            'send-event': f"/{self.api_url}",
+            'send-ack': "/collector/ack",
+        }.get(action)
+
+        if not suffix_url:
+            raise ValueError("Action not implemented")
+
+        url = f"{base_url}/{suffix_url}"
+        # Add api version. send-ack action has not versioned api
+        if self.api_version and action != "send-ack":
+            url = f"{url}/{self.api_version}"
 
         headers = {'Authorization': f"Splunk {self.token}"}
-        # Add Channel
-        if self.channel and self.channel_in:
+        # Add Channel. "health" check api does not want the channel id
+        if self.channel and action != "send-health":
             if self.channel_in == "url":
                 url = f"{url}?channel={self.channel}"
                 log.debug("Added channel to the url")
             else:  # channel_in == header
-                headers = {'Authorization': f"Splunk {self.token}", 'x-splunk-request-channel': self.channel}
+                headers.update({'x-splunk-request-channel': self.channel})
                 log.debug("Added channel inside the header")
 
         return url, headers
@@ -280,9 +354,14 @@ class SplunkSender:
         }[HTTP_code].get(splunk_code, 'Not a valid Splunk Error')
 
     @staticmethod
-    def dispatch_splunk_health_res_code(HTTP_code):
-        return {
+    def _dispatch_splunk_health_res(HTTP_code):
+        message = {
             200: 'HEC is available and accepting input',
             400: 'Invalid HEC token',
             503: 'HEC is unhealthy, queues are full',
         }.get(HTTP_code)
+
+        if HTTP_code == 200:
+            return True, message
+        else:
+            return False, message
