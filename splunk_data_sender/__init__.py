@@ -27,7 +27,7 @@ import time
 
 import requests
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util import Retry
 from requests.exceptions import Timeout, ConnectionError, TooManyRedirects
 
 
@@ -91,6 +91,8 @@ class SplunkSender:
         self.retry_backoff = retry_backoff
         self.debug = enable_debug
 
+        # If severity level is INFO, the logger will handle only INFO, WARNING, ERROR, and CRITICAL messages
+        #   and will ignore DEBUG messages.
         log_level = logging.DEBUG if self.debug else logging.INFO
         log.setLevel(log_level)
         log.debug("Starting in Debug Mode")
@@ -243,8 +245,8 @@ class SplunkSender:
 
     def _send_to_splunk(self, action, payload=None):
         log.debug("_send_to_splunk() called")
-        if not payload:
-            log.warning("No payload provided")
+        if not payload and action != 'get-health':
+            log.error("No payload provided")
 
         url, headers = self._dispatch_url_headers(action)
 
@@ -313,9 +315,9 @@ class SplunkSender:
         base_url = f"{self.protocol}://{self.host}:{self.port}/services"
 
         suffix_url = {
-            'get-health': "/collector/health",
-            'send-event': f"/{self.api_url}",
-            'send-ack': "/collector/ack",
+            'get-health': "collector/health",
+            'send-event': f"{self.api_url}",
+            'send-ack': "collector/ack",
         }.get(action)
 
         if not suffix_url:
