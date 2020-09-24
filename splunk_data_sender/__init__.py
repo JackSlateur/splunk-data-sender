@@ -28,7 +28,7 @@ import time
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
-from requests.exceptions import Timeout, ConnectionError, TooManyRedirects
+from requests.exceptions import Timeout, ConnectionError, TooManyRedirects, RequestException, RetryError
 
 
 log = logging.getLogger("Splunk-Data-Sender")
@@ -47,27 +47,27 @@ class SplunkSender:
                  retry_count=5, retry_backoff=2.0, enable_debug=False):
         """
         Args:
-            host (str): The Splunk host param
-            token (str): Authentication token
-            protocol (str): The web protocol to use. Default 'https'
-            port (int): The port the host is listening on
-            source (str): The Splunk source param
-            hostname (str): The Splunk Enterprise hostname
-            source_type (str): The Splunk source_type param. Defaults Non-Log file types
+            host (str): The Splunk host param.
+            token (str): Authentication token.
+            protocol (str): The web protocol to use. Default 'https'.
+            port (int): The port the host is listening on.
+            source (str): The Splunk source param.
+            hostname (str): The Splunk Enterprise hostname.
+            source_type (str): The Splunk source_type param. Defaults Non-Log file types.
                               https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/Listofpretrainedsourcetypes
             allow_overrides (bool): Whether to look for one of the plunk built-in parameters(source, host, ecc)
             api_url (str): The HTTP Event Collector REST API endpoint.
                            https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/HECRESTendpoints
-            api_version (str): Protocol version for future scalability. No default version. Refer to the API docs
-            index (str): Splunk index to write to
+            api_version (str): Protocol version for future scalability. No default version. Refer to the API docs.
+            index (str): Splunk index to write to.
             channel (str): GUID. Required if useAck config is enabled in Splunk HEC instance.
             channel_in (str): Where pass channel. "header"("x-splunk-request-channel") or "url".
-            proxies (list): The proxies to use for the request
-            verify (bool): Whether to perform SSL certificate validation
-            timeout (float): The time to wait for a response from Splunk
-            retry_count (int): The number of times to retry a failed request
-            retry_backoff (float): The requests lib backoff factor
-            enable_debug (bool): Whether to print debug console messages
+            proxies (list): The proxies to use for the request.
+            verify (bool): Whether to perform SSL certificate validation.
+            timeout (float): The time to wait for a response from Splunk. It is referred to each request.
+            retry_count (int): The number of times to retry a failed request.
+            retry_backoff (float): The requests lib backoff factor.
+            enable_debug (bool): Whether to print debug console messages.
         """
 
         self.host = host
@@ -126,7 +126,8 @@ class SplunkSender:
         retry = Retry(total=self.retry_count,
                       backoff_factor=self.retry_backoff,
                       method_whitelist=False,  # Retry for any HTTP verb
-                      status_forcelist=[500, 502, 503, 504])
+                      status_forcelist=[500, 502, 503, 504],
+                      redirect=1)
         self.session.mount(f"{self.protocol}://", HTTPAdapter(max_retries=retry))
 
         log.debug("Class initialize complete")
@@ -261,7 +262,8 @@ class SplunkSender:
                 timeout=self.timeout
             )
             self._check_splunk_response(splunk_response)
-        except (Timeout, ConnectionError, TooManyRedirects) as err:
+        except (Timeout, ConnectionError, TooManyRedirects, RequestException, RetryError) as err:
+            log.error(f'POST, Max retries exceeded with url: {url}. Timeout or Connection refused')
             raise err
         else:
             return splunk_response
@@ -280,7 +282,8 @@ class SplunkSender:
                 timeout=self.timeout
             )
             self._check_splunk_response(splunk_response)
-        except (Timeout, ConnectionError, TooManyRedirects) as err:
+        except (Timeout, ConnectionError, TooManyRedirects, RequestException, RetryError) as err:
+            log.error(f'GET, Max retries exceeded with url: {url}. Timeout or Connection refused')
             raise err
         else:
             return splunk_response
