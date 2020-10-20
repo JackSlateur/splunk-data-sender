@@ -30,7 +30,7 @@ import logging
 from splunk_data_sender import SplunkSender
     
 splunk_conf = SplunkSender(
-    host='splunk.example.com',
+    endpoint='splunk.example.com',
     port='8088',
     token='851A5E58-4EF1-7291-F947-F614A76ACB21',
     index='main',
