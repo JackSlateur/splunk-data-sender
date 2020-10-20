@@ -41,16 +41,16 @@ class SplunkSender:
     running the Splunk HTTP Event Collector.
     """
 
-    def __init__(self, host, token, protocol='https', port='8088', source="Splunk data sender", hostname=None,
+    def __init__(self, endpoint, token, protocol='https', port='8088', source="Splunk data sender", hostname=None,
                  source_type='generic_single_line', allow_overrides=False, api_url='collector/event',
                  api_version=None, index='main', channel=None, channel_in='url', proxies=None, verify=True, timeout=30,
                  retry_count=5, retry_backoff=2.0, enable_debug=False):
         """
         Args:
-            host (str): The Splunk host param.
+            endpoint (str): The Splunk Service endpoint param.
             token (str): Authentication token.
             protocol (str): The web protocol to use. Default 'https'.
-            port (int): The port the host is listening on.
+            port (int): The port the Splunk Service endpoint is listening on.
             source (str): The Splunk source param.
             hostname (str): The Splunk Enterprise hostname.
             source_type (str): The Splunk source_type param. Defaults Non-Log file types.
@@ -70,7 +70,7 @@ class SplunkSender:
             enable_debug (bool): Whether to print debug console messages.
         """
 
-        self.host = host
+        self.endpoint = endpoint
         self.token = token
         self.protocol = protocol if protocol in ("http", "https") else "https"
         self.port = port
@@ -315,7 +315,7 @@ class SplunkSender:
         Params:
             - action: (string) Three possibilities -> "send-health", "send-event" or "send-ack"
         """
-        base_url = f"{self.protocol}://{self.host}:{self.port}/services"
+        base_url = f"{self.protocol}://{self.endpoint}:{self.port}/services"
 
         suffix_url = {
             'get-health': "collector/health",
