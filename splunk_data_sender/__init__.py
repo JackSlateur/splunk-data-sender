@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import gzip
 import json
 import logging
 import socket
@@ -153,7 +154,7 @@ class SplunkSender:
 
         return is_healthy
 
-    def send_data(self, records):
+    def send_data(self, records, compress=False):
         """
         Send events to HTTP Event Collector using the Splunk platform JSON event protocol.
         https://docs.splunk.com/Documentation/Splunk/8.0.5/RESTREF/RESTinput#services.2Fcollector.2Fevent
@@ -180,7 +181,7 @@ class SplunkSender:
                 log.error(f"Exception: {str(err)}")
                 raise Exception from err
 
-        splunk_response = self._send_to_splunk('send-event', payload)
+        splunk_response = self._send_to_splunk('send-event', payload, compress)
 
         return json.loads(splunk_response.text)
 
@@ -244,7 +245,7 @@ class SplunkSender:
                 log.warning(f"Using default value for {attr}")
         return val
 
-    def _send_to_splunk(self, action, payload=None):
+    def _send_to_splunk(self, action, payload=None, compress=False):
         log.debug("_send_to_splunk() called")
         if not payload and action != 'get-health':
             log.error("No payload provided")
@@ -254,6 +255,12 @@ class SplunkSender:
         log.debug(f"Destination URL is {url}")
         try:
             log.debug("Sending payload: " + payload)
+            if compress is True:
+                log.debug("Gzipping payload")
+                headers['Content-Encoding'] = 'gzip'
+                payload = payload.encode('utf-8')
+                payload = gzip.compress(payload)
+
             splunk_response = self.session.post(
                 url,
                 data=payload,
