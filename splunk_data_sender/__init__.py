@@ -297,6 +297,13 @@ class SplunkSender:
 
     def _check_splunk_response(self, splunk_response):
         splunk_res_code = json.loads(splunk_response.text).get('code')
+
+        # HTTP 2XX = everything went as planned
+        if 200 <= splunk_response.status_code <= 299:
+            if 'acks' in splunk_response.text:
+                log.info("Splunk ack response arrived")
+            return
+
         # code is only present in case of send data, not in ack check.
         # If the code present, the http request has done correctly.
         if splunk_res_code or splunk_res_code == 0:  # 0 is False, so double check
@@ -308,8 +315,6 @@ class SplunkSender:
                 log.info(msg)
             else:
                 log.error(msg)
-        elif 200 <= splunk_response.status_code <= 299 and 'acks' in splunk_response.text:  # ack response
-            log.info("Splunk ack response arrived")
         else:
             log.warning("Response does not come directly from Splunk")
 
