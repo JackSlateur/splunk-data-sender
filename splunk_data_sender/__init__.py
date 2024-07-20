@@ -126,7 +126,7 @@ class SplunkSender:
         log.debug("Preparing to create a Requests session")
         retry = Retry(total=self.retry_count,
                       backoff_factor=self.retry_backoff,
-                      method_whitelist=False,  # Retry for any HTTP verb
+                      allowed_methods=False,  # Retry for any HTTP verb
                       status_forcelist=[500, 502, 503, 504],
                       redirect=1)
         self.session.mount(f"{self.protocol}://", HTTPAdapter(max_retries=retry))
