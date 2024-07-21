@@ -76,6 +76,46 @@ ack_id = splunk_res.get('ackId')
 splunk_ack_res = splunk.send_acks(ack_id)
 logging.info(splunk_ack_res)
 ```
+
+### Batching support
+
+You may want to enable batching support, to avoid sending a API call to Splunk every time send\_data() is called. \
+To enable the feature, use the `max_buf_size` parameter:
+```python
+from splunk_data_sender import SplunkSender
+
+
+splunk_conf = {
+    'endpoint': 'localhost',
+    'port': '8000',
+    'token': '851A5E58-4EF1-7291-F947-F614A76ACB21',
+    'index': 'main',
+    'source_type': '_json',
+
+    # Enable internal buffering, up to 2000 events
+    'max_buf_size': 2000,
+}
+
+splunk = SplunkSender(**splunk_conf)
+```
+
+Then, simply call send\_data() in your loop. API calls will be performed when enough events are gathered. \
+Call flush\_buffer() at the end of your code to send remaining events, or if you want to flush the buffer:
+
+```python
+for event in generate_event():
+	# event may be a dict, a string, or a list of events
+	# the event or list of events will be appended to the internal buffer
+	# If the buffer holds more than max_buf_size items (2000 in our example),
+	# then an API call will be made and the buffer will be reset.
+	# If such call is made, send_data returns its result.
+	# If no call is made, send_data() returns None
+	splunk.send_data(event)
+
+# We finished processing our stuff, we must commit any remaining events to Splunk
+splunk.flush_buffer()
+```
+
 ## Configuration parameters notes
 ### "source_type"
 If this param is sets to "_json" (and "allow_overrides" too), not built-in params will be added inside a **"fields"** key described below.
