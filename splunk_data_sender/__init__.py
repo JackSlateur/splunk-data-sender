@@ -45,7 +45,7 @@ class SplunkSender:
     def __init__(self, endpoint, token, protocol='https', port='8088', source="Splunk data sender", hostname=None,
                  source_type='generic_single_line', allow_overrides=False, api_url='collector/event',
                  api_version=None, index='main', channel=None, channel_in='url', proxies=None, verify=True, timeout=30,
-                 retry_count=5, retry_backoff=2.0, enable_debug=False):
+                 retry_count=5, retry_backoff=2.0, enable_debug=False, compress=False):
         """
         Args:
             endpoint (str): The Splunk Service endpoint param.
@@ -69,6 +69,7 @@ class SplunkSender:
             retry_count (int): The number of times to retry a failed request.
             retry_backoff (float): The requests lib backoff factor.
             enable_debug (bool): Whether to print debug console messages.
+            compress (bool): Compress data with gzip before sending them to Splunk.
         """
 
         self.endpoint = endpoint
@@ -91,6 +92,7 @@ class SplunkSender:
         self.retry_count = retry_count
         self.retry_backoff = retry_backoff
         self.debug = enable_debug
+        self.__compress = compress
 
         # If severity level is INFO, the logger will handle only INFO, WARNING, ERROR, and CRITICAL messages
         #   and will ignore DEBUG messages.
@@ -154,7 +156,7 @@ class SplunkSender:
 
         return is_healthy
 
-    def send_data(self, records, compress=False):
+    def send_data(self, records):
         """
         Send events to HTTP Event Collector using the Splunk platform JSON event protocol.
         https://docs.splunk.com/Documentation/Splunk/8.0.5/RESTREF/RESTinput#services.2Fcollector.2Fevent
@@ -181,7 +183,7 @@ class SplunkSender:
                 log.error(f"Exception: {str(err)}")
                 raise Exception from err
 
-        splunk_response = self._send_to_splunk('send-event', payload, compress)
+        splunk_response = self._send_to_splunk('send-event', payload)
 
         return json.loads(splunk_response.text)
 
@@ -245,7 +247,7 @@ class SplunkSender:
                 log.warning(f"Using default value for {attr}")
         return val
 
-    def _send_to_splunk(self, action, payload=None, compress=False):
+    def _send_to_splunk(self, action, payload=None):
         log.debug("_send_to_splunk() called")
         if not payload and action != 'get-health':
             log.error("No payload provided")
@@ -255,7 +257,7 @@ class SplunkSender:
         log.debug(f"Destination URL is {url}")
         try:
             log.debug("Sending payload: " + payload)
-            if compress is True:
+            if self.__compress is True:
                 log.debug("Gzipping payload")
                 headers['Content-Encoding'] = 'gzip'
                 payload = payload.encode('utf-8')
