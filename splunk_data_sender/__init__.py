@@ -45,7 +45,7 @@ class SplunkSender:
     def __init__(self, endpoint, token, protocol='https', port='8088', source="Splunk data sender", hostname=None,
                  source_type='generic_single_line', allow_overrides=False, api_url='collector/event',
                  api_version=None, index='main', channel=None, channel_in='url', proxies=None, verify=True, timeout=30,
-                 retry_count=5, retry_backoff=2.0, enable_debug=False, compress=False):
+                 retry_count=5, retry_backoff=2.0, enable_debug=False, compress=True):
         """
         Args:
             endpoint (str): The Splunk Service endpoint param.
