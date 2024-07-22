@@ -45,7 +45,7 @@ class SplunkSender:
     def __init__(self, endpoint, token, protocol='https', port='8088', source="Splunk data sender", hostname=None,
                  source_type='generic_single_line', allow_overrides=False, api_url='collector/event',
                  api_version=None, index='main', channel=None, channel_in='url', proxies=None, verify=True, timeout=30,
-                 retry_count=5, retry_backoff=2.0, enable_debug=False):
+                 retry_count=5, retry_backoff=2.0, enable_debug=False, compress=True, max_buf_size=0):
         """
         Args:
             endpoint (str): The Splunk Service endpoint param.
@@ -69,6 +69,9 @@ class SplunkSender:
             retry_count (int): The number of times to retry a failed request.
             retry_backoff (float): The requests lib backoff factor.
             enable_debug (bool): Whether to print debug console messages.
+            compress (bool): Compress data with gzip before sending them to Splunk.
+            max_buf_size (int): The number of events to keep in a buffer before sending them to Splunk.
+                                0, the default, disables the feature.
         """
 
         self.endpoint = endpoint
@@ -91,6 +94,9 @@ class SplunkSender:
         self.retry_count = retry_count
         self.retry_backoff = retry_backoff
         self.debug = enable_debug
+        self.__compress = compress
+        self.__buf = []
+        self.max_buf_size = max_buf_size
 
         # If severity level is INFO, the logger will handle only INFO, WARNING, ERROR, and CRITICAL messages
         #   and will ignore DEBUG messages.
@@ -154,16 +160,19 @@ class SplunkSender:
 
         return is_healthy
 
-    def send_data(self, records, compress=False):
+    def send_data(self, records):
         """
         Send events to HTTP Event Collector using the Splunk platform JSON event protocol.
+        Events may be hold in a buffer depending on SplunkSender.max_buf_size.
         https://docs.splunk.com/Documentation/Splunk/8.0.5/RESTREF/RESTinput#services.2Fcollector.2Fevent
 
         Args:
             records (list): The logs data from the user.
 
         Returns:
-            dict: The return message from API call. response body like {"text":"Success","code":0,"ackId":0}
+            None: if buffering is enabled and not enough event are being hold
+            dict: if buffering is disable or enough event are being hold, an API call is performed
+                  and its return message is returned. Response body like {"text":"Success","code":0,"ackId":0}
         """
         log.debug("send_data() called")
 
@@ -172,18 +181,10 @@ class SplunkSender:
             tmp_list.append(records)
             records = tmp_list.copy()
 
-        payload = ""
-        for record in records:
-            try:
-                formatted_record = self._format_record(record)
-                payload = ''.join([payload, formatted_record])
-            except Exception as err:
-                log.error(f"Exception: {str(err)}")
-                raise Exception from err
+        self.__buf += records
 
-        splunk_response = self._send_to_splunk('send-event', payload, compress)
-
-        return json.loads(splunk_response.text)
+        if len(self.__buf) >= self.max_buf_size:
+            return self.__send_data()
 
     def send_acks(self, acks):
         """
@@ -208,9 +209,38 @@ class SplunkSender:
         splunk_acks_response = self._send_to_splunk('send-ack', payload)
         return json.loads(splunk_acks_response.text)
 
+    def flush_buffer(self):
+        """
+        Flush any events left in the buffer and send them to Splunk.
+        You should call this method at the end of your program,
+        to avoid losing events.
+
+        Returns:
+            None: if the buffer is empty as no API calls is made.
+            dict: The return message from API call. response body like {"acks":{"0":true,"1":true, ...}}
+        """
+        if len(self.__buf) != 0:
+            return self.__send_data()
+
     ##################
     # helper methods #
     ##################
+    def __send_data(self):
+        if len(self.__buf) == 0:
+            return None
+
+        payload = ""
+        for record in self.__buf:
+            try:
+                formatted_record = self._format_record(record)
+                payload = ''.join([payload, formatted_record])
+            except Exception as err:
+                log.error(f"Exception: {str(err)}")
+                raise Exception from err
+        self.__buf = []
+
+        splunk_response = self._send_to_splunk('send-event', payload)
+        return json.loads(splunk_response.text)
 
     def _format_record(self, record):
         log.debug("_format_record() called")
@@ -245,7 +275,7 @@ class SplunkSender:
                 log.warning(f"Using default value for {attr}")
         return val
 
-    def _send_to_splunk(self, action, payload=None, compress=False):
+    def _send_to_splunk(self, action, payload=None):
         log.debug("_send_to_splunk() called")
         if not payload and action != 'get-health':
             log.error("No payload provided")
@@ -255,7 +285,7 @@ class SplunkSender:
         log.debug(f"Destination URL is {url}")
         try:
             log.debug("Sending payload: " + payload)
-            if compress is True:
+            if self.__compress is True:
                 log.debug("Gzipping payload")
                 headers['Content-Encoding'] = 'gzip'
                 payload = payload.encode('utf-8')
