@@ -2,13 +2,13 @@ from setuptools import setup, find_packages
 
 setup(
     name='splunk_data_sender',
-    version='0.3.0',
+    version='0.4.0',
     license='MIT License',
     description='A Python connector that sends your data to Splunk',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     author='Andrea Salvatori',
-    author_email='andrea.salvatori92@gmail.com',
+    author_email='16443598+Sonic0@users.noreply.github.com',
     url='https://github.com/Sonic0/splunk-data-sender',
     packages=find_packages(),
     install_requires=['requests >= 2.27.0, < 3.0.0'],
