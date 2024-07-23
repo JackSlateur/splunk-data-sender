@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "splunk-data-sender"
+version = "0.4.0"
+authors = [
+  { name="Andrea Salvatori", email="16443598+Sonic0@users.noreply.github.com " },
+]
+description = "A Python connector that sends your data to Splunk via HEC"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    'Development Status :: 4 - Beta',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: MIT License',
+    'Natural Language :: English',
+    'Operating System :: POSIX :: Linux',
+    'Operating System :: MacOS :: MacOS X',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3 :: Only',
+    'Topic :: System :: Logging'
+]
+dependencies = [
+    "requests >= 2.27.0, < 3.0.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/Sonic0/splunk-data-sender"
+Issues = "https://github.com/Sonic0/splunk-data-sender/issues"
