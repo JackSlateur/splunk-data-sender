@@ -84,7 +84,6 @@ To enable the feature, use the `max_buf_size` parameter:
 ```python
 from splunk_data_sender import SplunkSender
 
-
 splunk_conf = {
     'endpoint': 'localhost',
     'port': '8000',
@@ -126,6 +125,58 @@ for more information about source types.
 If this param is set to "True", whether to look for one of the Splunk built-in parameters 
 (time, source, host, index) it will override the autocompleted parameters.<br>
 For example, a json record with "time"=1486683865.000 will simulates a payload in the past for Splunk.
+
+### Overriding parameters without json
+By default, Splunk built-in parameters can only be overwritten from json records.
+However, you may need to send non-json records while keeping this ability.
+To that purpose, you may use the `event\_formatter` parameter. It takes a function in charge
+of formatting events before sending them to Splunk.
+Once set, you should call `send_data()` with events formatted as dict.
+The library will process the events as if they were json objects, will override the parameters
+accordingly, and will then call your function to reformat the resulting event.
+
+A sample code follows:
+```python
+from splunk_data_sender import SplunkSender
+
+
+def myEventFormatter(event):
+    # Transforms the event in any way you like
+    # event is of the same kind of what you sent to send_data()
+    # This sample function will return the event as XML, because why not
+    import xmltodict
+    return xmltodict.unparse({'event': event})
+
+splunk_conf = {
+    'endpoint': 'localhost',
+    'port': '8000',
+    'token': '851A5E58-4EF1-7291-F947-F614A76ACB21',
+    'index': 'main',
+    'allow_overrides': True,
+    'source_type': 'my_source_type',
+    'event_formatter': myEventFormatter
+}
+
+splunk = SplunkSender(**splunk_conf)
+
+# We can still send non-dict events. The formatter callback must be able to handle whatever
+kind of data you use.
+txt_record = "Hello! Splunk resta con me, Hello! Splunk non te ne andare, Caro Splunk! gioca con me, siamo amici io e te."
+
+# Built-in parameters will be overridden.
+# The resulting dict will be received by the callback function and transformed to XML
+json_record = {
+    "source": "spacecraft Discovery 1",
+    "host": "HAL9000",
+    "index": "main",
+    "event": {"message": "I am afraid I can't do that Dave.", "severity": "ERROR"},
+    "rack": "42",
+    "os": "Linux, obvious",
+    "arch": "x64"
+}
+payloads = [txt_record, json_record]
+splunk_res = splunk.send_data(payloads)
+```
 
 ## Notes for JSON source type event 
 Refer to the [official Splunk documentation](https://docs.splunk.com/Documentation/Splunk/8.0.5/Data/IFXandHEC) 
