@@ -45,7 +45,8 @@ class SplunkSender:
     def __init__(self, endpoint, token, protocol='https', port='8088', source="Splunk data sender", hostname=None,
                  source_type='generic_single_line', allow_overrides=False, api_url='collector/event',
                  api_version=None, index='main', channel=None, channel_in='url', proxies=None, verify=True, timeout=30,
-                 retry_count=5, retry_backoff=2.0, enable_debug=False, compress=True, max_buf_size=0):
+                 retry_count=5, retry_backoff=2.0, enable_debug=False, compress=True, max_buf_size=0,
+                 event_formatter=None):
         """
         Args:
             endpoint (str): The Splunk Service endpoint param.
@@ -72,6 +73,8 @@ class SplunkSender:
             compress (bool): Compress data with gzip before sending them to Splunk.
             max_buf_size (int): The number of events to keep in a buffer before sending them to Splunk.
                                 0, the default, disables the feature.
+            event_formatter (func): If set, this function will be called once for each events, before sending
+                                    them to splunk. It will be responsible to reformat the event.
         """
 
         self.endpoint = endpoint
@@ -97,6 +100,7 @@ class SplunkSender:
         self.__compress = compress
         self.__buf = []
         self.max_buf_size = max_buf_size
+        self.__event_formatter = event_formatter
 
         # If severity level is INFO, the logger will handle only INFO, WARNING, ERROR, and CRITICAL messages
         #   and will ignore DEBUG messages.
@@ -251,8 +255,10 @@ class SplunkSender:
             'source': self._get_splunk_attr(record, 'source', self.source),
             'sourcetype': self._get_splunk_attr(record, 'sourcetype', self.source_type),
             'index': self._get_splunk_attr(record, 'index', self.index),
-            'event': self._get_splunk_attr(record, 'event', record)
         }
+
+        event = self._get_splunk_attr(record, 'event', record)
+        params['event'] = self.__event_formatter(event) if self.__event_formatter else event
 
         if self.source_type == "_json" and isinstance(record, dict):
             params.update({'fields': record})
